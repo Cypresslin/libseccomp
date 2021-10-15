@@ -911,7 +911,6 @@ function run_test() {
 #     1    Batch name
 #
 function run_test_batch() {
-	local testnum=1
 	local batch_name=$1
 
 	# open temporary file
@@ -950,20 +949,7 @@ function run_test_batch() {
 			continue
 		fi
 
-		if [[ ${single_list[@]} ]]; then
-			for i in ${single_list[@]}; do
-				if [ $i -eq $testnum ]; then
-					# we're running a single test
-					run_test "$batch_name" \
-							$testnum "$line" \
-							"$test_type"
-				fi
-			done
-		else
-			# we're running a test from a batch
-			run_test "$batch_name" \
-					$testnum "$line" "$test_type"
-		fi
+		run_test "$batch_name" $testnum "$line" "$test_type"
 		testnum=$(($testnum+1))
 	done < "$file"
 
@@ -1014,10 +1000,13 @@ function run_tests() {
 	# loop through all test files
 	for file in $basedir/*.tests; do
 		local batch_requested=false
+		local test_requested=false
 		local batch_name=""
+		local testnum=""
 
 		# extract the batch name from the file name
 		batch_name=$(basename $file .tests)
+		testnum=$(echo $batch_name | sed 's/-.*//')
 
 		# check if this batch was requested
 		if [[ ${batch_list[@]} ]]; then
@@ -1028,6 +1017,19 @@ function run_tests() {
 				fi
 			done
 			if ! $batch_requested; then
+				continue
+			fi
+		fi
+
+		# check if this test was requested explicitly
+		if [[ ${single_list[@]} ]]; then
+			for t in ${single_list[@]}; do
+				if [[ $t == $testnum ]]; then
+					test_requested=true
+					break
+				fi
+			done
+			if ! $test_requested; then
 				continue
 			fi
 		fi
@@ -1122,7 +1124,7 @@ while getopts "ab:gj:l:m:s:t:T:vh" opt; do
 			echo "Please just enter number for the -s flag, terminating..."
 			exit 1
 		fi
-		single_list[single_count]=$OPTARG
+		single_list[single_count]=$(printf "%02d" $OPTARG)
 		single_count=$(($single_count+1))
 		;;
 	t)
